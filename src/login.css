@@ -1,10 +1,14 @@
 /* Variables de color */
 :root {
-  --primary: #FF6B35;
-  --primary-light: #FF9E58;
-  --primary-dark: #E05A2B;
+  --primary: #2196F3;
+  --primary-light: #42A5F5;
+  --primary-dark: #1976D2;
+
   --secondary: #004E89;
-  --accent: #FFD166;
+
+  --accent: #2196F3;
+  --accent-dark: #1976D2;
+
   --light: #F7F7F7;
   --dark: #333333;
   --gray: #E0E0E0;
@@ -62,7 +66,7 @@ body {
   left: 0;
   width: 100%;
   height: 5px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: linear-gradient(90deg, var(--accent), var(--accent-dark));
 }
 
 .logo-container {
@@ -138,7 +142,6 @@ input {
   width: 100%;
 }
 
-/* Añade esto al final del CSS para la versión móvil */
 @media (max-width: 480px) {
   .input-group {
     gap: 8px;
@@ -147,7 +150,7 @@ input {
   .input-group svg {
     width: 20px;
     height: 20px;
-  display: none; /* Opcional: ocultar iconos en móviles si prefieres */
+    display: none;
   }
 }
 
@@ -157,7 +160,7 @@ input::placeholder {
 
 input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.2);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
   outline: none;
 }
 
@@ -192,7 +195,7 @@ button[type="submit"].loading {
   opacity: 0.8;
 }
 
-/* Pie de página del login */
+/* Pie */
 .login-footer {
   display: flex;
   flex-direction: column;
@@ -256,7 +259,7 @@ button[type="submit"].loading {
   margin-bottom: 5px;
 }
 
-/* Spinner de carga */
+/* Spinner */
 .spinner {
   display: inline-block;
   width: 18px;
@@ -271,7 +274,7 @@ button[type="submit"].loading {
   to { transform: rotate(360deg); }
 }
 
-/* Modal de éxito */
+/* Modal éxito */
 .success-modal {
   position: fixed;
   top: 0;

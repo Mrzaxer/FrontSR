@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './Inicio.module.css';
 import logo from '/imagenes/iconn.png';
 import logoBienvenida from '/imagenes/free.png';
-import fondo from '/imagenes/pordo.png';
+import fondo from '/imagenes/pp.jpeg';
 
 const Inicio = () => {
   const navigate = useNavigate();

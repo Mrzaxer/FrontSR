@@ -236,3 +236,64 @@
     height: 250px;
   }
 }
+
+/* Estilos para recomendaciones */
+.recomendaciones-container {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.recomendaciones-container h4 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: var(--primary-color);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.recomendaciones-container h4::before {
+  content: '💡';
+}
+
+.recomendaciones-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.recomendacion-item {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+  color: var(--dark-color);
+}
+
+.recomendacion-item::marker {
+  color: var(--primary-color);
+}
+
+.no-recomendaciones {
+  margin: 0;
+  color: #666;
+  font-style: italic;
+}
+
+/* Animación para recomendaciones */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recomendacion-item {
+  animation: fadeInUp 0.3s ease-out;
+  animation-fill-mode: both;
+}

@@ -1,10 +1,10 @@
 /* Variables de color */
 :root {
-  --primary: #FF6B35;
-  --primary-light: #FF9E58;
-  --primary-dark: #E05A2B;
+  --primary: ##2196F3;
+  --primary-light: #42A5F5;
+  --primary-dark: #1976D2;
   --secondary: #004E89;
-  --accent: #FFD166;
+  --accent: #2196F3;
   --light: #F7F7F7;
   --dark: #333333;
   --gray: #E0E0E0;

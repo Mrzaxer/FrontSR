@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { sendPost } from './indexedDB.js';
 import './Habitos.css';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-const Habitos = () => {
+const Habitos = ({ userId }) => {
   const [habitos, setHabitos] = useState([]);
   const [error, setError] = useState(null);
   const [modoEdicion, setModoEdicion] = useState(false);
@@ -19,34 +19,40 @@ const Habitos = () => {
     diasSemana: [],
   });
 
-  const userId = localStorage.getItem('userId');
-
-  const obtenerHabitos = async () => {
-    if (!userId) {
-      setError('No hay userId en localStorage');
-      return;
-    }
-    try {
-      const res = await axios.get(`http://localhost:3000/api/habitos/usuario/${userId}`);
-      setHabitos(res.data);
-      setError(null);
-    } catch (error) {
-      console.error("Error al obtener hábitos", error);
-      setError("No se pudieron cargar los hábitos.");
-    }
+  // ====== Simula obtener hábitos del servidor o localStorage ======
+  const obtenerHabitos = () => {
+    // Por ahora usamos solo local para reflejar cambios instantáneamente
+    const habitosGuardados = JSON.parse(localStorage.getItem('habitos') || '[]');
+    setHabitos(habitosGuardados);
   };
 
+  const guardarHabitosLocal = (nuevosHabitos) => {
+    localStorage.setItem('habitos', JSON.stringify(nuevosHabitos));
+    setHabitos(nuevosHabitos);
+  };
+
+  // ====== Agregar hábito ======
   const agregarHabito = async () => {
     if (!formHabito.titulo.trim()) {
       setError('El título es obligatorio');
       return;
     }
+
+    const dataHabito = {
+      ...formHabito,
+      usuarioId: userId,
+      estado: 'pendiente',
+      fechaCreacion: new Date().toISOString()
+    };
+
     try {
-      await axios.post(`http://localhost:3000/api/habitos/nuevo`, {
-        ...formHabito,
-        usuarioId: userId,
-        estado: 'pendiente',
-      });
+      await sendPost({ tipo: 'habito', data: dataHabito });
+      console.log('Hábito guardado en IndexedDB');
+
+      // Guardar localmente para mostrarlo en pantalla
+      guardarHabitosLocal([...habitos, dataHabito]);
+
+      // Reset del formulario
       setFormHabito({
         titulo: '',
         descripcion: '',
@@ -55,17 +61,17 @@ const Habitos = () => {
         comentarios: '',
         diasSemana: [],
       });
-      obtenerHabitos();
       setError(null);
-    } catch (error) {
-      console.error("Error al agregar hábito", error);
-      setError("No se pudo agregar el hábito.");
+    } catch (err) {
+      console.error('Error guardando hábito', err);
+      setError('No se pudo guardar el hábito');
     }
   };
 
+  // ====== Editar hábito ======
   const editarHabito = (habito) => {
     setModoEdicion(true);
-    setHabitoEditando(habito._id);
+    setHabitoEditando(habito.fechaCreacion); // usamos fechaCreacion como id único
     setFormHabito({
       titulo: habito.titulo,
       descripcion: habito.descripcion,
@@ -76,88 +82,70 @@ const Habitos = () => {
     });
   };
 
-  const actualizarHabito = async () => {
+  const actualizarHabito = () => {
     if (!formHabito.titulo.trim()) {
       setError('El título es obligatorio');
       return;
     }
-    try {
-      await axios.put(`http://localhost:3000/api/habitos/${habitoEditando}`, formHabito);
-      setModoEdicion(false);
-      setHabitoEditando(null);
-      setFormHabito({
-        titulo: '',
-        descripcion: '',
-        horaObjetivo: '',
-        duracionMinutos: 0,
-        comentarios: '',
-        diasSemana: [],
-      });
-      obtenerHabitos();
-      setError(null);
-    } catch (error) {
-      console.error("Error al actualizar hábito", error);
-      setError("No se pudo actualizar el hábito.");
-    }
+
+    const nuevosHabitos = habitos.map(h => {
+      if (h.fechaCreacion === habitoEditando) {
+        return { ...h, ...formHabito };
+      }
+      return h;
+    });
+
+    guardarHabitosLocal(nuevosHabitos);
+
+    // Guardar en IndexedDB
+    sendPost({ tipo: 'habito', data: formHabito }).catch(console.error);
+
+    setModoEdicion(false);
+    setHabitoEditando(null);
+    setFormHabito({
+      titulo: '',
+      descripcion: '',
+      horaObjetivo: '',
+      duracionMinutos: 0,
+      comentarios: '',
+      diasSemana: [],
+    });
+    setError(null);
   };
 
-  const borrarHabito = async (id) => {
-    try {
-      await axios.delete(`http://localhost:3000/api/habitos/${id}`);
-      obtenerHabitos();
-    } catch (error) {
-      console.error("Error al borrar hábito", error);
-      setError("No se pudo borrar el hábito.");
-    }
+  // ====== Borrar hábito ======
+  const borrarHabito = (id) => {
+    const nuevosHabitos = habitos.filter(h => h.fechaCreacion !== id);
+    guardarHabitosLocal(nuevosHabitos);
   };
 
-  const puedeCompletar = (habito) => {
-    const ahora = new Date();
-    const diaActual = DIAS_SEMANA[ahora.getDay() - 1] || 'Domingo';
-    
-    const dias = Array.isArray(habito.diasSemana) ? habito.diasSemana : [];
-    if (!dias.includes(diaActual)) return false;
-    
-    if (habito.estado === 'completado') return false;
-    
-    if (!habito.horaObjetivo || !habito.duracionMinutos) return true;
-    
-    const [h, m] = habito.horaObjetivo.split(':').map(Number);
-    const inicio = new Date(ahora);
-    inicio.setHours(h, m, 0, 0);
-    
-    const fin = new Date(inicio);
-    fin.setMinutes(fin.getMinutes() + habito.duracionMinutos);
-    
-    return ahora >= fin;
+  // ====== Completar hábito ======
+  const completarHabito = (id) => {
+    const nuevosHabitos = habitos.map(h => {
+      if (h.fechaCreacion === id) {
+        return { ...h, estado: 'completado' };
+      }
+      return h;
+    });
+    guardarHabitosLocal(nuevosHabitos);
   };
 
-  const completarHabito = async (id) => {
-    try {
-      await axios.post(`http://localhost:3000/api/habitos/${id}/completar`);
-      obtenerHabitos();
-      setError(null);
-    } catch (error) {
-      console.error("Error al completar hábito", error);
-      setError("No se pudo completar el hábito.");
-    }
-  };
-
+  // ====== Temporizadores ======
   const [temporizadores, setTemporizadores] = useState({});
 
   const calcularSegundosRestantes = (habito) => {
     if (!habito.horaObjetivo || !habito.duracionMinutos) return null;
-    
+
     const ahora = new Date();
     const [h, m] = habito.horaObjetivo.split(':').map(Number);
     const inicio = new Date(ahora);
     inicio.setHours(h, m, 0, 0);
-    
+
     const fin = new Date(inicio);
     fin.setMinutes(fin.getMinutes() + habito.duracionMinutos);
-    
+
     if (ahora < inicio || ahora > fin) return null;
-    
+
     return Math.floor((fin - ahora) / 1000);
   };
 
@@ -168,22 +156,21 @@ const Habitos = () => {
   useEffect(() => {
     const intervalo = setInterval(() => {
       const nuevosTemporizadores = {};
-
-      habitos.forEach(hab => {
-        const segRest = calcularSegundosRestantes(hab);
+      habitos.forEach(h => {
+        const segRest = calcularSegundosRestantes(h);
         if (segRest !== null) {
           const min = Math.floor(segRest / 60);
           const seg = segRest % 60;
-          nuevosTemporizadores[hab._id] = { minutos: min, segundos: seg };
+          nuevosTemporizadores[h.fechaCreacion] = { minutos: min, segundos: seg };
         }
       });
-
       setTemporizadores(nuevosTemporizadores);
     }, 1000);
 
     return () => clearInterval(intervalo);
   }, [habitos]);
 
+  // ====== Formulario ======
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -200,6 +187,15 @@ const Habitos = () => {
     } else {
       setFormHabito({ ...formHabito, [name]: value });
     }
+  };
+
+  const puedeCompletar = (habito) => {
+    const ahora = new Date();
+    const diaActual = DIAS_SEMANA[ahora.getDay() - 1] || 'Domingo';
+    const dias = Array.isArray(habito.diasSemana) ? habito.diasSemana : [];
+    if (!dias.includes(diaActual)) return false;
+    if (habito.estado === 'completado') return false;
+    return true;
   };
 
   return (
@@ -284,32 +280,23 @@ const Habitos = () => {
         <div className="form-actions">
           {modoEdicion ? (
             <>
-              <button className="btn-primary" onClick={actualizarHabito}>
-                Actualizar Hábito
-              </button>
-              <button 
-                className="btn-secondary" 
-                onClick={() => {
-                  setModoEdicion(false);
-                  setHabitoEditando(null);
-                  setFormHabito({
-                    titulo: '',
-                    descripcion: '',
-                    horaObjetivo: '',
-                    duracionMinutos: 0,
-                    comentarios: '',
-                    diasSemana: [],
-                  });
-                  setError(null);
-                }}
-              >
-                Cancelar
-              </button>
+              <button className="btn-primary" onClick={actualizarHabito}>Actualizar Hábito</button>
+              <button className="btn-secondary" onClick={() => {
+                setModoEdicion(false);
+                setHabitoEditando(null);
+                setFormHabito({
+                  titulo: '',
+                  descripcion: '',
+                  horaObjetivo: '',
+                  duracionMinutos: 0,
+                  comentarios: '',
+                  diasSemana: [],
+                });
+                setError(null);
+              }}>Cancelar</button>
             </>
           ) : (
-            <button className="btn-primary" onClick={agregarHabito}>
-              Agregar Nuevo Hábito
-            </button>
+            <button className="btn-primary" onClick={agregarHabito}>Agregar Nuevo Hábito</button>
           )}
         </div>
       </div>
@@ -322,78 +309,33 @@ const Habitos = () => {
           </div>
         ) : (
           habitos.map(h => {
-            const temp = temporizadores[h._id];
+            const temp = temporizadores[h.fechaCreacion];
             const estaActivo = !!temp;
             const puedeComp = puedeCompletar(h);
-            
+
             return (
-              <div key={h._id} className={`habito-card ${h.estado === 'completado' ? 'completed' : ''}`}>
+              <div key={h.fechaCreacion} className={`habito-card ${h.estado === 'completado' ? 'completed' : ''}`}>
                 <div className="habito-header">
                   <h3>{h.titulo}</h3>
                   <span className={`habito-status ${h.estado}`}>
                     {h.estado === 'completado' ? '✅ Completado' : '⏳ Pendiente'}
                   </span>
                 </div>
-                
+
                 {h.descripcion && <p className="habito-desc">{h.descripcion}</p>}
-                
+
                 <div className="habito-details">
-                  <div className="detail">
-                    <span className="detail-label">Hora:</span>
-                    <span>{h.horaObjetivo || 'No especificada'}</span>
-                  </div>
-                  
-                  <div className="detail">
-                    <span className="detail-label">Duración:</span>
-                    <span>{h.duracionMinutos} minutos</span>
-                  </div>
-                  
-                  <div className="detail">
-                    <span className="detail-label">Días:</span>
-                    <span>{(h.diasSemana || []).join(', ') || 'No especificados'}</span>
-                  </div>
-                  
-                  {h.comentarios && (
-                    <div className="detail">
-                      <span className="detail-label">Notas:</span>
-                      <span>{h.comentarios}</span>
-                    </div>
-                  )}
-                  
-                  {estaActivo && (
-                    <div className="temporizador">
-                      <span className="detail-label">Tiempo restante:</span>
-                      <span>
-                        {temp.minutos.toString().padStart(2, '0')}:
-                        {temp.segundos.toString().padStart(2, '0')}
-                      </span>
-                    </div>
-                  )}
+                  <div className="detail"><span className="detail-label">Hora:</span><span>{h.horaObjetivo || 'No especificada'}</span></div>
+                  <div className="detail"><span className="detail-label">Duración:</span><span>{h.duracionMinutos} minutos</span></div>
+                  <div className="detail"><span className="detail-label">Días:</span><span>{(h.diasSemana || []).join(', ') || 'No especificados'}</span></div>
+                  {h.comentarios && <div className="detail"><span className="detail-label">Notas:</span><span>{h.comentarios}</span></div>}
+                  {estaActivo && <div className="temporizador"><span className="detail-label">Tiempo restante:</span><span>{temp.minutos.toString().padStart(2,'0')}:{temp.segundos.toString().padStart(2,'0')}</span></div>}
                 </div>
-                
+
                 <div className="habito-actions">
-                  <button 
-                    className="btn-edit"
-                    onClick={() => editarHabito(h)}
-                  >
-                    Editar
-                  </button>
-                  
-                  <button 
-                    className="btn-delete"
-                    onClick={() => borrarHabito(h._id)}
-                  >
-                    Eliminar
-                  </button>
-                  
-                  {puedeComp && (
-                    <button 
-                      className="btn-complete"
-                      onClick={() => completarHabito(h._id)}
-                    >
-                      Completar
-                    </button>
-                  )}
+                  <button className="btn-edit" onClick={() => editarHabito(h)}>Editar</button>
+                  <button className="btn-delete" onClick={() => borrarHabito(h.fechaCreacion)}>Eliminar</button>
+                  {puedeComp && <button className="btn-complete" onClick={() => completarHabito(h.fechaCreacion)}>Completar</button>}
                 </div>
               </div>
             );
